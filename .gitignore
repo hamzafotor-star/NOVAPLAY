@@ -1,0 +1,22 @@
+# Gradle & Kotlin build caches
+.gradle/
+.kotlin/
+build/
+app/build/
+
+# Local SDK / JDK machine-specific paths
+local.properties
+
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Large compiled APK binaries (exceed GitHub 100MB file limit; built via Gradle / GitHub Actions)
+*.apk
+*.aab
+*.ap_
+*.dex

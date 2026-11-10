@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NovaPlay IPTV</string>
+    <string name="live_tv">Direct TV</string>
+    <string name="movies_vod">Films &amp; Séries</string>
+    <string name="sports_live">Sports Live</string>
+    <string name="playlists_sources">Playlists &amp; Xtream</string>
+    <string name="continue_watching">Continuer la lecture</string>
+    <string name="pip_mode">Picture-in-Picture</string>
+</resources>
+

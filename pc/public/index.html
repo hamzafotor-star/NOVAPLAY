@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NovaPlay IPTV — Version PC Desktop</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <!-- HLS.js & MPEGTS.js for universal IPTV stream decoding on PC -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.js"></script>
+</head>
+<body>
+    <!-- Left Desktop Sidebar -->
+    <aside class="sidebar">
+        <div>
+            <div class="brand">
+                <div class="brand-logo">NP</div>
+                <div>
+                    <div class="brand-title">NovaPlay IPTV</div>
+                    <div class="brand-sub">ÉDITION PC DESKTOP</div>
+                </div>
+            </div>
+
+            <ul class="nav-list">
+                <li class="nav-item" data-tab="home" onclick="switchTab('home')">🏠 Accueil</li>
+                <li class="nav-item active" data-tab="live" onclick="switchTab('live')">📺 Direct TV & Guide</li>
+                <li class="nav-item" data-tab="vod" onclick="switchTab('vod')">🎬 Films & Séries (VOD)</li>
+                <li class="nav-item" data-tab="sports" onclick="switchTab('sports')">⚽ Sports Live & PPV</li>
+                <li class="nav-item" data-tab="settings" onclick="switchTab('settings')">⚙️ Playlists & IPTV</li>
+            </ul>
+        </div>
+
+        <div class="shortcuts-box">
+            <h4>Raccourcis Clavier PC</h4>
+            <div class="shortcut-row"><span>Zapping CH- / CH+</span><span><kbd class="kbd">↑</kbd> <kbd class="kbd">↓</kbd></span></div>
+            <div class="shortcut-row"><span>Plein écran</span><span><kbd class="kbd">F</kbd></span></div>
+            <div class="shortcut-row"><span>Format d'écran</span><span><kbd class="kbd">R</kbd></span></div>
+            <div class="shortcut-row"><span>Lecture / Pause</span><span><kbd class="kbd">Espace</kbd></span></div>
+            <div class="shortcut-row"><span>Muet</span><span><kbd class="kbd">M</kbd></span></div>
+        </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="workspace">
+        <!-- Top Status & 1-Click Bouquets Bar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <div class="pill-live"><span class="dot-live"></span> DIRECT HD</div>
+                <span class="stats-text" id="topStatsText">Chargement des bouquets...</span>
+            </div>
+            <div class="topbar-right">
+                <button class="btn-chip" onclick="quickLoadBouquet('🇫🇷 Bouquet Francophone', 'https://iptv-org.github.io/iptv/languages/fra.m3u')">🇫🇷 +180 Chaînes FR</button>
+                <button class="btn-chip" onclick="quickLoadBouquet('🇫🇷 Bouquet France TNT', 'https://iptv-org.github.io/iptv/countries/fr.m3u')">📡 France TNT</button>
+                <button class="btn-chip" onclick="quickLoadBouquet('⚽ Bouquet Sports Monde', 'https://iptv-org.github.io/iptv/categories/sports.m3u')">⚽ Sports Live</button>
+                <button class="btn-chip" onclick="switchTab('settings')">➕ Importer M3U / Xtream</button>
+            </div>
+        </header>
+
+        <!-- 1. HOME VIEW -->
+        <section id="view-home" class="view-section">
+            <div class="scroll-page">
+                <div class="hero-banner">
+                    <div>
+                        <div style="display:flex; gap:8px; margin-bottom:10px;">
+                            <span class="badge-pill engine">MOTEUR HLS.JS + PROXY VLC</span>
+                            <span class="pill-live" id="heroChannelCount">22 CHAÎNES PRÊTES</span>
+                        </div>
+                        <h1 style="font-size:26px; font-weight:800; margin-bottom:8px;">NovaPlay IPTV • Version PC Windows</h1>
+                        <p style="color:#CFD8DC; font-size:14px; max-width:680px;">
+                            Retrouvez toutes vos chaînes en direct classées par bouquets thématiques, avec adaptation d'écran automatique (16:9, Zoom, 100%, 4:3), zapping clavier et proxy IPTV anti-blocage intégré.
+                        </p>
+                        <div style="display:flex; gap:10px; margin-top:16px;">
+                            <button class="btn-primary" onclick="switchTab('live')">📺 Regarder la TV en Direct</button>
+                            <button class="btn-secondary" onclick="switchTab('vod')">🎬 Catalogue Films & Séries</button>
+                            <button class="btn-secondary" onclick="switchTab('settings')">⚙️ Ajouter un Bouquet IPTV</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 style="margin-bottom:12px;">Chaînes en Direct Favorites & Populaires</h3>
+                    <div class="cards-grid" id="homeChannelsGrid"></div>
+                </div>
+
+                <div>
+                    <h3 style="margin-bottom:12px;">Films & Séries 4K à l'affiche</h3>
+                    <div class="cards-grid" id="homeVodGrid"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. LIVE TV SPLIT DESKTOP VIEW -->
+        <section id="view-live" class="view-section active">
+            <div class="live-split">
+                <!-- Left Column: Video Player + EPG -->
+                <div class="player-column">
+                    <div class="video-container" id="videoContainer">
+                        <video id="videoPlayer" class="scale-fit" playsinline autoplay></video>
+
+                        <div class="buffering-box" id="bufferingBox">
+                            <div class="spinner"></div>
+                            <span id="bufferingText">Chargement du flux HD...</span>
+                        </div>
+
+                        <!-- Top Video Overlay -->
+                        <div class="player-overlay-top">
+                            <div class="player-title-box">
+                                <h3 id="playerTitle">Sélectionnez une chaîne</h3>
+                                <p id="playerSubtitle">Direct TV • NovaPlay PC</p>
+                            </div>
+                            <div class="player-badges">
+                                <button class="badge-pill" id="scaleModeBtn" onclick="cycleScaleMode()" title="Changer le format d'écran (Touche R)">📐 16:9</button>
+                                <button class="badge-pill engine" id="proxyModeBtn" onclick="toggleProxyMode()" title="Basculer entre Direct et Proxy IPTV VLC">⚡ DIRECT + PROXY AUTO</button>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Video Controls -->
+                        <div class="player-overlay-bottom">
+                            <div class="status-banner" id="playerStatusBanner"></div>
+                            <div class="controls-row">
+                                <div class="controls-group">
+                                    <button class="ctrl-btn" id="playPauseBtn" onclick="togglePlayPause()">⏸ Pause</button>
+                                    <button class="ctrl-btn" onclick="zapChannel(-1)">⏮ CH-</button>
+                                    <button class="ctrl-btn" onclick="zapChannel(1)">⏭ CH+</button>
+                                    <button class="ctrl-btn" id="muteBtn" onclick="toggleMute()">🔊</button>
+                                    <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.05" value="1" oninput="changeVolume(this.value)" />
+                                </div>
+                                <div class="controls-group">
+                                    <button class="ctrl-btn" onclick="retryCurrentStream()" title="Relancer le flux">↻ Relancer</button>
+                                    <button class="ctrl-btn" onclick="toggleFullscreenDrawer()" title="Tiroir des chaînes">📋 Chaînes</button>
+                                    <button class="ctrl-btn" onclick="requestPip()" title="Picture-in-Picture">🗔 PiP</button>
+                                    <button class="ctrl-btn" onclick="toggleFullscreen()" title="Plein écran (Touche F)">⛶ Plein Écran</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Slide-Over Channel Drawer (inside Video Container so it works in Fullscreen!) -->
+                        <div class="fs-drawer" id="fsDrawer">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <h4 style="color:var(--cyan);">Chaînes & Bouquets</h4>
+                                <button class="ctrl-btn" onclick="toggleFullscreenDrawer()">✕</button>
+                            </div>
+                            <div id="fsDrawerList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- EPG Bar under player -->
+                    <div class="epg-card">
+                        <div class="epg-info">
+                            <h4 id="epgChannelName">🇫🇷 Franceinfo: (FHD)</h4>
+                            <p id="epgProgramTitle">Le Direct France Télévisions</p>
+                            <small id="epgProgramDesc">Information en continu, éditions spéciales et débats politiques.</small>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn-secondary" onclick="zapChannel(-1)">▲ Chaîne Préc.</button>
+                            <button class="btn-primary" onclick="zapChannel(1)">▼ Chaîne Suiv.</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Organized Bouquet & Channel Guide -->
+                <div class="guide-column">
+                    <div class="guide-toolbar">
+                        <input type="text" id="searchInput" class="search-input" placeholder="🔍 Rechercher une chaîne ou un bouquet..." oninput="onSearchInput(this.value)" />
+                        <button class="btn-secondary" id="sortModeBtn" onclick="cycleSortMode()" title="Changer l'ordre de tri">Tri: Bouquet</button>
+                        <button class="btn-secondary" id="gridModeBtn" onclick="toggleGridView()" title="Basculer Liste / Grille">⊞ Grille</button>
+                    </div>
+
+                    <!-- Bouquet Tabs -->
+                    <div class="bouquet-tabs" id="bouquetTabs"></div>
+
+                    <!-- Country Filter Tabs (when > 1 country) -->
+                    <div class="bouquet-tabs" id="countryTabs" style="display:none;"></div>
+
+                    <!-- Organized Channel List / Grid -->
+                    <div class="channel-list-container" id="channelListContainer"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. VOD VIEW -->
+        <section id="view-vod" class="view-section">
+            <div class="scroll-page">
+                <div>
+                    <h2>🎬 Catalogue Films & Séries (VOD)</h2>
+                    <p style="color:var(--text-secondary); font-size:13.5px; margin-top:4px;">Cliquez sur un film ou un épisode pour démarrer la lecture immédiate dans le lecteur PC.</p>
+                </div>
+                <div class="cards-grid" id="vodCatalogGrid"></div>
+            </div>
+        </section>
+
+        <!-- 4. SPORTS VIEW -->
+        <section id="view-sports" class="view-section">
+            <div class="scroll-page">
+                <div>
+                    <h2>⚽ Calendrier Sports Live & Événements PPV</h2>
+                    <p style="color:var(--text-secondary); font-size:13.5px; margin-top:4px;">Accès direct aux chaînes sportives diffusant les rencontres en direct.</p>
+                </div>
+                <div class="cards-grid" id="sportsCatalogGrid"></div>
+            </div>
+        </section>
+
+        <!-- 5. SETTINGS & PLAYLISTS VIEW -->
+        <section id="view-settings" class="view-section">
+            <div class="scroll-page">
+                <div>
+                    <h2>⚙️ Gestion des Bouquets IPTV, Fichiers M3U & Xtream Codes</h2>
+                    <p id="syncStatusBanner" style="color:var(--cyan); font-size:13.5px; margin-top:4px;">Importez vos listes M3U (URL ou fichier local sur votre PC) ou connectez un compte Xtream Codes.</p>
+                </div>
+
+                <div class="settings-grid">
+                    <!-- M3U URL or Local File -->
+                    <div class="panel-card">
+                        <h3 style="color:var(--cyan);">1. Importer une Playlist M3U / M3U8 (URL ou Fichier PC)</h3>
+                        <div class="form-field">
+                            <label>Nom du Bouquet</label>
+                            <input type="text" id="m3uNameInput" class="search-input" value="Mon Bouquet M3U" />
+                        </div>
+                        <div class="form-field">
+                            <label>Lien URL M3U / M3U8</label>
+                            <input type="text" id="m3uUrlInput" class="search-input" placeholder="https://exemple.com/playlist.m3u8" />
+                        </div>
+                        <button class="btn-primary" onclick="submitM3uUrl()">📥 Charger l'URL M3U</button>
+
+                        <hr style="border:none; border-top:1px solid rgba(255,255,255,0.08); margin:6px 0;" />
+
+                        <div class="form-field">
+                            <label>Ou sélectionner un fichier <code>.m3u</code> / <code>.m3u8</code> depuis votre PC :</label>
+                            <input type="file" id="m3uFileInput" accept=".m3u,.m3u8,.txt" class="search-input" onchange="handleLocalM3uFile(this)" />
+                        </div>
+                    </div>
+
+                    <!-- Xtream Codes Login -->
+                    <div class="panel-card">
+                        <h3 style="color:var(--cyan);">2. Connexion Serveur Xtream Codes API</h3>
+                        <div class="form-field">
+                            <label>Nom du Serveur</label>
+                            <input type="text" id="xtreamNameInput" class="search-input" value="Mon Abonnement Xtream" />
+                        </div>
+                        <div class="form-field">
+                            <label>URL du Serveur (http:// ou https:// + port)</label>
+                            <input type="text" id="xtreamServerInput" class="search-input" placeholder="http://mon-serveur-iptv.com:8080" />
+                        </div>
+                        <div class="form-field">
+                            <label>Utilisateur (Username)</label>
+                            <input type="text" id="xtreamUserInput" class="search-input" placeholder="Identifiant" />
+                        </div>
+                        <div class="form-field">
+                            <label>Mot de passe (Password)</label>
+                            <input type="password" id="xtreamPassInput" class="search-input" placeholder="Mot de passe" />
+                        </div>
+                        <button class="btn-primary" onclick="submitXtreamLogin()">🔌 Connecter Xtream Codes</button>
+                    </div>
+
+                    <!-- Active Sources & Reset -->
+                    <div class="panel-card">
+                        <h3 style="color:var(--cyan);">3. Bouquets installés & Restauration</h3>
+                        <div id="sourcesList" style="display:flex; flex-direction:column; gap:8px;"></div>
+                        <button class="btn-secondary" onclick="restoreBuiltinCatalog()">🔄 Restaurer le Bouquet Officiel NovaPlay (22 chaînes HD)</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/app.js"></script>
+</body>
+</html>

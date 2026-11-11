@@ -27,7 +27,9 @@ enum class NavTab(val label: String, val shortLabel: String) {
 }
 
 data class AppUiState(
-    val currentTab: NavTab = NavTab.HOME,
+    // Opens directly on LIVE_TV ("Direct TV") on startup as requested!
+    val currentTab: NavTab = NavTab.LIVE_TV,
+    val isAdultMode: Boolean = false,
     val channels: List<LiveChannel> = emptyList(),
     val availableCountries: List<String> = listOf("TOUS", "FR"),
     val categories: List<String> = listOf("Toutes"),
@@ -74,19 +76,48 @@ class MainViewModel(
             countryFilter = state.selectedCountry,
             categoryFilter = state.selectedCategory,
             searchQuery = state.liveSearchQuery,
-            sortMode = state.sortMode
+            sortMode = state.sortMode,
+            adultMode = state.isAdultMode
         )
         _uiState.value = state.copy(
             channels = channels,
-            availableCountries = repository.getAvailableCountries(),
-            categories = repository.getAllCategories(),
-            categoryCounts = repository.getCategoryCounts(),
+            availableCountries = repository.getAvailableCountries(adultMode = state.isAdultMode),
+            categories = repository.getAllCategories(adultMode = state.isAdultMode),
+            categoryCounts = repository.getCategoryCounts(adultMode = state.isAdultMode),
             hiddenCategories = repository.getHiddenCategories(),
-            vodItems = repository.getVodCatalog(state.vodSearchQuery, state.selectedVodCategory),
-            sportsEvents = repository.getSportsEvents(state.selectedSportFilter),
+            vodItems = repository.getVodCatalog(
+                searchQuery = state.vodSearchQuery,
+                category = state.selectedVodCategory,
+                adultMode = state.isAdultMode
+            ),
+            sportsEvents = if (state.isAdultMode) emptyList() else repository.getSportsEvents(state.selectedSportFilter),
             continueWatching = repository.getContinueWatching(),
             playlistSources = repository.getPlaylistSources()
         )
+    }
+
+    /**
+     * Toggles the "Mode Adulte / Olé Olé" (Black & Pink/Rose theme).
+     * Strictly isolates content: when ON, displays ONLY "Olé Olé / 18+" channels & VOD;
+     * when OFF, displays ONLY normal channels & VOD.
+     */
+    fun toggleAdultMode() {
+        val nextAdult = !_uiState.value.isAdultMode
+        _uiState.value = _uiState.value.copy(
+            isAdultMode = nextAdult,
+            selectedCountry = "TOUS",
+            selectedCategory = "Toutes",
+            liveSearchQuery = "",
+            selectedVodCategory = "Tous",
+            vodSearchQuery = "",
+            selectedVodDetail = null,
+            currentTab = if (nextAdult && _uiState.value.currentTab == NavTab.SPORTS) NavTab.LIVE_TV else _uiState.value.currentTab
+        )
+        refreshAll()
+        val firstChannel = _uiState.value.channels.firstOrNull()
+        if (firstChannel != null) {
+            selectLiveChannel(firstChannel, openFullscreen = false)
+        }
     }
 
     fun selectTab(tab: NavTab) {
@@ -257,6 +288,7 @@ class MainViewModel(
         navigateToLiveOnSuccess: Boolean = false
     ) {
         viewModelScope.launch {
+            val isAdultNow = _uiState.value.isAdultMode
             _uiState.value = _uiState.value.copy(
                 isSyncingSource = true,
                 syncStatusMessage = "Téléchargement, nettoyage et classement des bouquets en cours..."
@@ -266,7 +298,8 @@ class MainViewModel(
                 type = type,
                 serverUrl = serverUrl,
                 username = username,
-                password = password
+                password = password,
+                forceAdult = isAdultNow || serverUrl.contains("xxx", true)
             )
             result.fold(
                 onSuccess = { src ->
@@ -302,7 +335,7 @@ class MainViewModel(
             selectedCountry = "TOUS",
             selectedCategory = "Toutes",
             liveSearchQuery = "",
-            syncStatusMessage = "✓ Bouquet officiel NovaPlay restauré (22 chaînes HD classées)"
+            syncStatusMessage = "✓ Bouquet complet restauré (TNT, Télétoon+, Discovery Science, Sport & 18+)"
         )
         refreshAll()
         _uiState.value.channels.firstOrNull()?.let { selectLiveChannel(it) }

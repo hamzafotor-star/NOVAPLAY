@@ -49,9 +49,15 @@
                 <span class="stats-text" id="topStatsText">Chargement des bouquets...</span>
             </div>
             <div class="topbar-right">
-                <button class="btn-chip" onclick="quickLoadBouquet('🇫🇷 Bouquet Francophone', 'https://iptv-org.github.io/iptv/languages/fra.m3u')">🇫🇷 +180 Chaînes FR</button>
-                <button class="btn-chip" onclick="quickLoadBouquet('🇫🇷 Bouquet France TNT', 'https://iptv-org.github.io/iptv/countries/fr.m3u')">📡 France TNT</button>
-                <button class="btn-chip" onclick="quickLoadBouquet('⚽ Bouquet Sports Monde', 'https://iptv-org.github.io/iptv/categories/sports.m3u')">⚽ Sports Live</button>
+                <button class="btn-adult-toggle" id="adultModeBtn" onclick="toggleAdultMode()">🔞 Mode Olé Olé (18+)</button>
+                <span id="normalQuickBouquets" style="display:flex; gap:8px;">
+                    <button class="btn-chip" onclick="quickLoadBouquet('🇫🇷 Bouquet Francophone', 'https://iptv-org.github.io/iptv/languages/fra.m3u')">🇫🇷 +180 Chaînes FR</button>
+                    <button class="btn-chip" onclick="quickLoadBouquet('🧒 Jeunesse & Animation', 'https://iptv-org.github.io/iptv/categories/kids.m3u')">🧒 Jeunesse</button>
+                    <button class="btn-chip" onclick="quickLoadBouquet('📚 Science & Découverte', 'https://iptv-org.github.io/iptv/categories/documentary.m3u')">📚 Science & Doc</button>
+                </span>
+                <span id="adultQuickBouquets" style="display:none; gap:8px;">
+                    <button class="btn-chip" onclick="quickLoadBouquet('🔞 Bouquet International 18+ (XXX)', 'https://iptv-org.github.io/iptv/categories/xxx.m3u', true)">🔥 Charger +500 Chaînes 18+ (M3U)</button>
+                </span>
                 <button class="btn-chip" onclick="switchTab('settings')">➕ Importer M3U / Xtream</button>
             </div>
         </header>

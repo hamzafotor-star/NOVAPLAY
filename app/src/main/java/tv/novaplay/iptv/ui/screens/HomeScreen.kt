@@ -127,7 +127,9 @@ fun HomeScreen(
                     }
 
                     Text(
-                        text = if (isCompact) {
+                        text = if (uiState.isAdultMode) {
+                            "🔞 Mode Adulte • Olé Olé 18+ (Noir & Rose)"
+                        } else if (isCompact) {
                             "NovaPlay IPTV • Direct TV & VOD"
                         } else {
                             "NovaPlay IPTV • Direct TV, Cinéma 4K & Sports"
@@ -138,7 +140,11 @@ fun HomeScreen(
                     )
 
                     Text(
-                        text = "Chaînes TV en direct fonctionnelles dès l'ouverture + chargement en 1 clic des bouquets Francophones, Sports et M3U / Xtream Codes.",
+                        text = if (uiState.isAdultMode) {
+                            "Espace 18+ exclusif : affiche uniquement les chaînes et films Olé Olé, Charme, Séduction & Club Privé 24/7."
+                        } else {
+                            "Chaînes TV en direct fonctionnelles dès l'ouverture (TNT, Télétoon+, Discovery Science, Sport) + chargement en 1 clic des bouquets M3U / Xtream."
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color(0xFFCFD8DC)
                     )
@@ -237,13 +243,20 @@ fun HomeScreen(
                     }
                 }
 
-                val quickBouquets = listOf(
-                    "🇫🇷 Bouquet Francophone (+180 chaînes)" to "https://iptv-org.github.io/iptv/languages/fra.m3u",
-                    "🇫🇷 Bouquet France TNT & Régions" to "https://iptv-org.github.io/iptv/countries/fr.m3u",
-                    "⚽ Bouquet Sports Live Monde" to "https://iptv-org.github.io/iptv/categories/sports.m3u",
-                    "🎬 Bouquet Cinéma & Films" to "https://iptv-org.github.io/iptv/categories/movies.m3u",
-                    "🌍 Bouquet Actualités 24/7" to "https://iptv-org.github.io/iptv/categories/news.m3u"
-                )
+                val quickBouquets = if (uiState.isAdultMode) {
+                    listOf(
+                        "🔞 Bouquet International 18+ (XXX M3U)" to "https://iptv-org.github.io/iptv/categories/xxx.m3u"
+                    )
+                } else {
+                    listOf(
+                        "🇫🇷 Bouquet Francophone (+180 chaînes)" to "https://iptv-org.github.io/iptv/languages/fra.m3u",
+                        "🇫🇷 Bouquet France TNT & Régions" to "https://iptv-org.github.io/iptv/countries/fr.m3u",
+                        "🧒 Bouquet Jeunesse & Animation" to "https://iptv-org.github.io/iptv/categories/kids.m3u",
+                        "📚 Bouquet Science & Documentaires" to "https://iptv-org.github.io/iptv/categories/documentary.m3u",
+                        "⚽ Bouquet Sports Live Monde" to "https://iptv-org.github.io/iptv/categories/sports.m3u",
+                        "🎬 Bouquet Cinéma & Films" to "https://iptv-org.github.io/iptv/categories/movies.m3u"
+                    )
+                }
 
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(quickBouquets) { (title, url) ->
@@ -507,9 +520,10 @@ fun HomeScreen(
             }
         }
 
-        // 5. Live Sports Events Preview
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // 5. Live Sports Events Preview (Only shown in Normal Mode)
+        if (!uiState.isAdultMode && uiState.sportsEvents.isNotEmpty()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -587,6 +601,7 @@ fun HomeScreen(
                             }
                         }
                     }
+                }
                 }
             }
         }

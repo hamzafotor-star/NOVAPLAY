@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Movie
@@ -58,11 +59,10 @@ import tv.novaplay.iptv.ui.theme.SurfaceCard
 import tv.novaplay.iptv.ui.theme.SurfaceDark
 
 /**
- * Root adaptive shell:
- * - Smartphone Portrait (width < 600dp): Sleek Top App Bar + Bottom NavigationBar
- * - Smartphone Landscape (width >= 600dp && height < 480dp): Left NavigationRail + Split Landscape Layout
- * - Tablet / Android TV (width >= 600dp && height >= 480dp): Left D-Pad NavigationRail + Wide TV Layout
- * - Immersive Fullscreen & Picture-in-Picture (PiP): Edge-to-edge video surface
+ * Root adaptive shell with 1-tap "🔞 Mode Adulte / Olé Olé" (Black & Pink/Rose theme) switcher.
+ * When Adult Mode is ON:
+ * - Entire UI switches to Pitch-Black & Neon Rose
+ * - Normal family/sports tabs & channels are hidden, showing ONLY "Olé Olé / 18+" channels & VOD!
  */
 @Composable
 fun MainScreen(
@@ -74,6 +74,12 @@ fun MainScreen(
     val configuration = LocalConfiguration.current
     val isCompactWidth = configuration.screenWidthDp < 600
     val isPhoneLandscape = configuration.screenWidthDp >= 600 && configuration.screenHeightDp < 480
+
+    val visibleTabs = if (uiState.isAdultMode) {
+        listOf(NavTab.LIVE_TV, NavTab.VOD, NavTab.HOME, NavTab.SETTINGS)
+    } else {
+        NavTab.entries
+    }
 
     // In Picture-in-Picture mode, render only the clean video surface
     if (isInPipMode) {
@@ -119,7 +125,7 @@ fun MainScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -137,7 +143,7 @@ fun MainScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "NP",
+                                    text = if (uiState.isAdultMode) "18+" else "NP",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Color.White,
                                     fontWeight = FontWeight.ExtraBold
@@ -145,15 +151,19 @@ fun MainScreen(
                             }
                             Column {
                                 Text(
-                                    text = "NovaPlay IPTV",
+                                    text = if (uiState.isAdultMode) "NovaPlay • Olé Olé 🔞" else "NovaPlay IPTV",
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = Color.White,
+                                    color = if (uiState.isAdultMode) Color(0xFFFF80AB) else Color.White,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "${uiState.channels.size} chaînes • ${uiState.categories.size - 2} bouquets",
+                                    text = if (uiState.isAdultMode) {
+                                        "${uiState.channels.size} chaînes 18+ • Mode Noir & Rose"
+                                    } else {
+                                        "${uiState.channels.size} chaînes • ${maxOf(1, uiState.categories.size - 2)} bouquets"
+                                    },
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFF90A4AE)
+                                    color = if (uiState.isAdultMode) Color(0xFFFF4081) else Color(0xFF90A4AE)
                                 )
                             }
                         }
@@ -162,31 +172,38 @@ fun MainScreen(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // 🔞 Mode Adulte / Olé Olé Toggle Pill
                             Surface(
-                                color = LiveRed.copy(alpha = 0.18f),
+                                color = if (uiState.isAdultMode) Color(0xFFFF1493) else Color(0xFF280B1B),
                                 shape = RoundedCornerShape(20.dp),
                                 modifier = Modifier
-                                    .border(1.dp, LiveRed.copy(alpha = 0.45f), RoundedCornerShape(20.dp))
-                                    .clickable { viewModel.selectTab(NavTab.LIVE_TV) }
+                                    .border(
+                                        width = 1.dp,
+                                        color = Color(0xFFFF2A85),
+                                        shape = RoundedCornerShape(20.dp)
+                                    )
+                                    .clickable { viewModel.toggleAdultMode() }
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .background(EmeraldLive, RoundedCornerShape(3.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Favorite,
+                                        contentDescription = "Mode Adulte Olé Olé",
+                                        tint = if (uiState.isAdultMode) Color.White else Color(0xFFFF4081),
+                                        modifier = Modifier.size(13.dp)
                                     )
                                     Text(
-                                        text = "DIRECT",
+                                        text = if (uiState.isAdultMode) "🔞 QUITTER 18+" else "🔞 OLÉ OLÉ",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold
+                                        color = if (uiState.isAdultMode) Color.White else Color(0xFFFF80AB),
+                                        fontWeight = FontWeight.ExtraBold
                                     )
                                 }
                             }
+
                             Surface(
                                 color = SurfaceCard,
                                 shape = RoundedCornerShape(20.dp),
@@ -195,16 +212,16 @@ fun MainScreen(
                                     .clickable { viewModel.selectTab(NavTab.SETTINGS) }
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.AddCircleOutline,
                                         contentDescription = "Bouquets IPTV",
                                         tint = ElectricCyan,
-                                        modifier = Modifier.size(15.dp)
+                                        modifier = Modifier.size(14.dp)
                                     )
-                                    Spacer(Modifier.width(4.dp))
+                                    Spacer(Modifier.width(3.dp))
                                     Text(
                                         text = "IPTV",
                                         style = MaterialTheme.typography.labelSmall,
@@ -223,7 +240,7 @@ fun MainScreen(
                     contentColor = Color.White,
                     tonalElevation = 8.dp
                 ) {
-                    NavTab.entries.forEach { tab ->
+                    visibleTabs.forEach { tab ->
                         val icon = when (tab) {
                             NavTab.HOME -> Icons.Default.Home
                             NavTab.LIVE_TV -> Icons.Default.LiveTv
@@ -237,13 +254,13 @@ fun MainScreen(
                             icon = { Icon(icon, contentDescription = tab.shortLabel) },
                             label = {
                                 Text(
-                                    text = tab.shortLabel,
+                                    text = if (uiState.isAdultMode && tab == NavTab.LIVE_TV) "Direct 18+" else tab.shortLabel,
                                     style = MaterialTheme.typography.labelSmall,
                                     maxLines = 1
                                 )
                             },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color(0xFF001F26),
+                                selectedIconColor = if (uiState.isAdultMode) Color.White else Color(0xFF001F26),
                                 selectedTextColor = ElectricCyan,
                                 indicatorColor = ElectricCyan,
                                 unselectedIconColor = Color(0xFF90A4AE),
@@ -281,27 +298,48 @@ fun MainScreen(
                 contentColor = Color.White,
                 modifier = Modifier.fillMaxHeight(),
                 header = {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 10.dp, bottom = 4.dp)
-                            .size(34.dp)
-                            .background(
-                                Brush.linearGradient(listOf(ElectricCyan, NeonViolet)),
-                                RoundedCornerShape(10.dp)
-                            ),
-                        contentAlignment = Alignment.Center
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(top = 8.dp)
                     ) {
-                        Text(
-                            text = "NP",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(
+                                    Brush.linearGradient(listOf(ElectricCyan, NeonViolet)),
+                                    RoundedCornerShape(10.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (uiState.isAdultMode) "18+" else "NP",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        // 🔞 Adult / Olé Olé Toggle button in NavigationRail
+                        Surface(
+                            color = if (uiState.isAdultMode) Color(0xFFFF1493) else Color(0xFF280B1B),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .border(1.dp, Color(0xFFFF2A85), RoundedCornerShape(12.dp))
+                                .clickable { viewModel.toggleAdultMode() }
+                        ) {
+                            Text(
+                                text = if (uiState.isAdultMode) "🔞 ON" else "🔞 18+",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
                     }
                 }
             ) {
                 Spacer(Modifier.height(4.dp))
-                NavTab.entries.forEach { tab ->
+                visibleTabs.forEach { tab ->
                     val icon = when (tab) {
                         NavTab.HOME -> Icons.Default.Home
                         NavTab.LIVE_TV -> Icons.Default.LiveTv
@@ -319,7 +357,7 @@ fun MainScreen(
                             }
                         },
                         colors = NavigationRailItemDefaults.colors(
-                            selectedIconColor = Color(0xFF001F26),
+                            selectedIconColor = if (uiState.isAdultMode) Color.White else Color(0xFF001F26),
                             selectedTextColor = ElectricCyan,
                             indicatorColor = ElectricCyan,
                             unselectedIconColor = Color(0xFF90A4AE),

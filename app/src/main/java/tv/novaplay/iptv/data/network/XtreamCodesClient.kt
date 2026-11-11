@@ -23,11 +23,13 @@ class XtreamCodesClient {
 
     val httpClient: OkHttpClient = buildIptvHttpClient()
 
-    suspend fun fetchM3uChannels(m3uInput: String): List<LiveChannel> = withContext(Dispatchers.IO) {
+    suspend fun fetchM3uChannels(m3uInput: String, forceAdult: Boolean = false): List<LiveChannel> = withContext(Dispatchers.IO) {
         val trimmed = m3uInput.trim()
+        val isAdultUrl = forceAdult || trimmed.contains("/xxx", true) || trimmed.contains("adult", true)
+
         // If user pasted raw #EXTM3U content directly into the field
         if (trimmed.startsWith("#EXTM3U", ignoreCase = true) || trimmed.contains("#EXTINF:", ignoreCase = true)) {
-            return@withContext M3uParser.parse(trimmed)
+            return@withContext M3uParser.parse(trimmed, forceAdultBouquet = isAdultUrl)
         }
 
         val normalizedUrl = if (!trimmed.startsWith("http://", true) && !trimmed.startsWith("https://", true)) {
@@ -47,7 +49,7 @@ class XtreamCodesClient {
                 throw IllegalStateException("Le serveur IPTV a répondu HTTP ${response.code}")
             }
             val body = response.body?.string().orEmpty()
-            M3uParser.parse(body)
+            M3uParser.parse(body, forceAdultBouquet = isAdultUrl)
         }
     }
 
@@ -58,7 +60,6 @@ class XtreamCodesClient {
     ): List<LiveChannel> = withContext(Dispatchers.IO) {
         val rawUrl = serverUrl.trim()
 
-        // If user pasted a full get.php?username=...&password=... M3U link in Xtream mode, handle it seamlessly
         if (rawUrl.contains("get.php", ignoreCase = true) || rawUrl.endsWith(".m3u", true) || rawUrl.endsWith(".m3u8", true)) {
             return@withContext fetchM3uChannels(rawUrl)
         }
@@ -104,9 +105,20 @@ class XtreamCodesClient {
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
                     val streamId = obj.optInt("stream_id", i + 1)
-                    val name = obj.optString("name", "Chaîne #$streamId")
+                    val rawName = obj.optString("name", "Chaîne #$streamId")
+                    val cleanName = M3uParser.cleanChannelName(rawName).ifEmpty { rawName }
                     val categoryId = obj.optString("category_id")
-                    val group = categoryMap[categoryId] ?: "Live TV"
+                    val rawGroup = categoryMap[categoryId] ?: "Live TV"
+                    val country = when {
+                        rawName.contains("UK", true) || rawGroup.contains("UK", true) -> "UK"
+                        rawName.contains("US", true) || rawGroup.contains("US", true) -> "US"
+                        rawName.contains("BE", true) || rawGroup.contains("BELG", true) -> "BE"
+                        rawName.contains("CH", true) || rawGroup.contains("SUISSE", true) -> "CH"
+                        rawName.contains("MA", true) || rawGroup.contains("MAROC", true) -> "MA"
+                        else -> "FR"
+                    }
+                    val classifiedGroup = M3uParser.classifyBouquet(rawGroup, cleanName, country)
+                    val quality = M3uParser.extractQualityBadge(rawName, rawGroup)
                     val icon = obj.optString("stream_icon", "")
                     val epgId = obj.optString("epg_channel_id", "xtream_$streamId")
                     val hlsUrl = "$baseUrl/live/$u/$p/$streamId.m3u8"
@@ -116,19 +128,15 @@ class XtreamCodesClient {
                         LiveChannel(
                             key = "xtream_$streamId",
                             ordinal = i + 1,
-                            name = name,
-                            group = group,
+                            name = cleanName,
+                            group = classifiedGroup,
                             streamUrl = hlsUrl,
                             backupStreamUrl = tsUrl,
                             logoUrl = icon,
-                            country = when {
-                                name.contains("UK", true) || group.contains("UK", true) -> "UK"
-                                name.contains("US", true) || group.contains("US", true) -> "US"
-                                name.contains("AR", true) || group.contains("AR", true) -> "AR"
-                                else -> "FR"
-                            },
-                            isPpv = group.contains("PPV", true) || group.contains("Sport", true),
-                            priority = if (group.contains("24/7", true) || group.contains("VIP", true)) 1 else 0,
+                            country = country,
+                            qualityLabel = quality,
+                            isPpv = classifiedGroup.contains("Sport", true),
+                            priority = if (quality == "4K") 3 else if (quality == "FHD") 2 else 1,
                             epgChannelId = epgId
                         )
                     )
@@ -136,7 +144,6 @@ class XtreamCodesClient {
                 list
             }
         }.getOrElse {
-            // Fallback to get.php M3U endpoint if player_api.php is disabled on the provider
             val fallbackM3uUrl = "$baseUrl/get.php?username=$u&password=$p&type=m3u_plus&output=ts"
             fetchM3uChannels(fallbackM3uUrl)
         }

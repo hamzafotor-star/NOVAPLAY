@@ -12,7 +12,8 @@ import tv.novaplay.iptv.data.model.WatchProgress
 import tv.novaplay.iptv.data.parser.M3uParser
 
 /**
- * Native SQLite database with structured bouquet ordering, quality badges, and multi-mode sorting.
+ * Native SQLite database with structured bouquet ordering, quality badges, multi-mode sorting,
+ * and strict isolation between Normal Mode and "Mode Adulte / Olé Olé".
  */
 class IptvDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
 
@@ -93,7 +94,7 @@ class IptvDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, 
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if (oldVersion < 3) {
+        if (oldVersion < 4) {
             db.execSQL("DROP TABLE IF EXISTS channels")
             db.execSQL("DROP TABLE IF EXISTS catalog")
             db.execSQL("DELETE FROM playlist_sources WHERE id LIKE 'builtin%'")
@@ -146,7 +147,8 @@ class IptvDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, 
         countryFilter: String? = null,
         categoryFilter: String? = null,
         searchQuery: String = "",
-        sortMode: ChannelSortMode = ChannelSortMode.BY_GROUP
+        sortMode: ChannelSortMode = ChannelSortMode.BY_GROUP,
+        adultMode: Boolean = false
     ): List<LiveChannel> {
         val db = readableDatabase
         val gen = getCurrentGeneration(db)
@@ -188,12 +190,17 @@ class IptvDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, 
             FROM channels
             WHERE $whereClause
             ORDER BY $orderBy
-            LIMIT 1500
+            LIMIT 4000
         """.trimIndent()
 
         val result = mutableListOf<LiveChannel>()
         db.rawQuery(sql, args.toTypedArray()).use { cursor ->
             while (cursor.moveToNext()) {
+                val grp = cursor.getString(4) ?: ""
+                val isAdultChannel = M3uParser.isAdultBouquet(grp)
+                // Strict isolation: Adult Mode shows ONLY adult channels; Normal Mode shows ONLY normal channels
+                if (adultMode != isAdultChannel) continue
+
                 val key = cursor.getString(0)
                 val isFav = favorites.contains(key)
                 if (onlyFavorites && !isFav) continue
@@ -203,7 +210,7 @@ class IptvDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, 
                         generation = cursor.getInt(1),
                         ordinal = cursor.getInt(2),
                         name = cursor.getString(3),
-                        group = cursor.getString(4),
+                        group = grp,
                         streamUrl = cursor.getString(5),
                         backupStreamUrl = cursor.getString(6)?.takeIf { it.isNotBlank() },
                         logoUrl = cursor.getString(7) ?: "",
@@ -227,7 +234,7 @@ class IptvDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, 
         }
     }
 
-    fun queryCategoryCounts(): Map<String, Int> {
+    fun queryCategoryCounts(adultMode: Boolean = false): Map<String, Int> {
         val db = readableDatabase
         val gen = getCurrentGeneration(db)
         if (gen <= 0) return emptyMap()
@@ -244,28 +251,33 @@ class IptvDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, 
         ).use { c ->
             while (c.moveToNext()) {
                 val grp = c.getString(0) ?: continue
+                if (M3uParser.isAdultBouquet(grp) != adultMode) continue
                 val cnt = c.getInt(1)
                 counts[grp] = cnt
                 total += cnt
             }
         }
         counts["Toutes"] = total
-        counts["⭐ Favoris"] = getFavoriteKeys("channel").size
+        val favKeys = getFavoriteKeys("channel")
+        val visibleFavCount = queryVisibleChannels(categoryFilter = "⭐ Favoris", adultMode = adultMode).size
+        counts["⭐ Favoris"] = visibleFavCount.coerceAtMost(favKeys.size)
         return counts
     }
 
-    fun queryAvailableCountries(): List<String> {
+    fun queryAvailableCountries(adultMode: Boolean = false): List<String> {
         val db = readableDatabase
         val gen = getCurrentGeneration(db)
         if (gen <= 0) return listOf("TOUS", "FR")
         val list = mutableListOf("TOUS")
         db.rawQuery(
-            "SELECT country, COUNT(*) as cnt FROM channels WHERE generation = ? AND country IS NOT NULL AND country != '' GROUP BY country ORDER BY cnt DESC LIMIT 12",
+            "SELECT country, grp, COUNT(*) as cnt FROM channels WHERE generation = ? AND country IS NOT NULL AND country != '' GROUP BY country, grp ORDER BY cnt DESC",
             arrayOf(gen.toString())
         ).use { c ->
             while (c.moveToNext()) {
                 val code = c.getString(0)
-                if (!code.isNullOrBlank() && !list.contains(code)) {
+                val grp = c.getString(1) ?: ""
+                if (M3uParser.isAdultBouquet(grp) != adultMode) continue
+                if (!code.isNullOrBlank() && !list.contains(code) && list.size < 12) {
                     list.add(code)
                 }
             }
@@ -417,6 +429,6 @@ class IptvDatabase(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, 
 
     companion object {
         private const val DB_NAME = "novaplay_iptv.db"
-        private const val DB_VERSION = 3
+        private const val DB_VERSION = 4
     }
 }

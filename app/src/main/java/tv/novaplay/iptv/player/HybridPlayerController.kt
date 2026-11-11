@@ -125,7 +125,7 @@ class HybridPlayerController(context: Context) {
     private fun startBufferingWatchdog() {
         watchdogJob?.cancel()
         watchdogJob = playerScope.launch {
-            delay(7_500L)
+            delay(5_000L)
             val current = _uiState.value
             if (current.isBuffering && !current.isPlaying) {
                 recoverPlayback("Délai réseau dépassé")
@@ -214,7 +214,9 @@ class HybridPlayerController(context: Context) {
             cleanUrl.startsWith("rtmp://", ignoreCase = true) ||
             cleanUrl.startsWith("mms://", ignoreCase = true)
 
-        val resolvedBackup = backupUrl ?: M3uParser.deriveAlternateTransportUrl(cleanUrl)
+        val resolvedBackup = backupUrl
+            ?: M3uParser.deriveAlternateTransportUrl(cleanUrl)
+            ?: M3uParser.thematicFallbackUrl(subtitle, title)
 
         _uiState.value = _uiState.value.copy(
             title = title,
@@ -409,6 +411,21 @@ class HybridPlayerController(context: Context) {
         } else {
             if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
         }
+    }
+
+    /**
+     * Immediately stops all audio & video playback when the user leaves or closes the app.
+     */
+    fun stopPlayback() {
+        watchdogJob?.cancel()
+        exoPlayer.playWhenReady = false
+        exoPlayer.pause()
+        exoPlayer.stop()
+        stopLibVlc()
+        _uiState.value = _uiState.value.copy(
+            isPlaying = false,
+            isBuffering = false
+        )
     }
 
     fun seekBy(deltaMs: Long) {

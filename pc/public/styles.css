@@ -14,6 +14,39 @@
     --border-subtle: rgba(0, 229, 255, 0.22);
 }
 
+/* 🔞 MODE ADULTE / OLÉ OLÉ : Thème Noir & Rose */
+body.adult-mode {
+    --bg-obsidian: #050104;
+    --bg-surface-dark: #11040C;
+    --bg-surface-card: #1E0715;
+    --bg-surface-elevated: #2E0B21;
+    --cyan: #FF2A85;
+    --cyan-dim: rgba(255, 42, 133, 0.22);
+    --violet: #D5006D;
+    --text-primary: #FFF0F6;
+    --text-secondary: #FF80AB;
+    --border-subtle: rgba(255, 42, 133, 0.38);
+}
+
+.btn-adult-toggle {
+    background: #280B1B;
+    border: 1.5px solid #FF2A85;
+    color: #FF80AB;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.btn-adult-toggle:hover,
+body.adult-mode .btn-adult-toggle {
+    background: linear-gradient(90deg, #FF1493, #D5006D);
+    color: #fff;
+    box-shadow: 0 0 14px rgba(255, 20, 147, 0.55);
+}
+
 * {
     box-sizing: border-box;
     margin: 0;

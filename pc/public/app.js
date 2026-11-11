@@ -4,10 +4,13 @@
  */
 
 const state = {
+    isAdultMode: false,
+    allChannels: [],
     channels: [],
     categories: ['Toutes'],
     categoryCounts: {},
     countries: ['TOUS'],
+    allVodItems: [],
     vodItems: [],
     sportsEvents: [],
     sources: [],
@@ -49,29 +52,67 @@ async function loadStateFromServer(playFirst = false) {
     try {
         const res = await fetch('/api/state');
         const data = await res.json();
-        state.channels = data.channels || [];
-        state.categories = data.categories || ['Toutes'];
-        state.categoryCounts = data.categoryCounts || {};
-        state.countries = data.countries || ['TOUS'];
-        state.vodItems = data.vodItems || [];
+        state.allChannels = data.channels || [];
+        state.allVodItems = data.vodItems || [];
         state.sportsEvents = data.sportsEvents || [];
         state.sources = data.sources || [];
 
-        updateTopStats();
-        renderBouquetTabs();
-        renderCountryTabs();
-        renderChannelCollection();
-        renderHomeDashboard();
-        renderVodCatalog();
-        renderSportsCatalog();
-        renderSourcesList();
-
-        if (playFirst && state.channels.length > 0 && !state.activeChannel) {
-            selectChannel(state.channels[0]);
-        }
+        recomputeModeData(playFirst);
     } catch (err) {
         console.error('Failed to load state:', err);
     }
+}
+
+function recomputeModeData(playFirst = false) {
+    // Strict isolation: Adult Mode shows ONLY isAdult channels & VOD; Normal Mode shows ONLY non-adult channels & VOD!
+    state.channels = state.allChannels.filter(ch => Boolean(ch.isAdult) === state.isAdultMode);
+    state.vodItems = state.allVodItems.filter(v => Boolean(v.isAdult) === state.isAdultMode);
+
+    const favCount = state.channels.filter(c => c.isFavorite).length;
+    const counts = { 'Toutes': state.channels.length, '⭐ Favoris': favCount };
+    const groups = [];
+    for (const ch of state.channels) {
+        counts[ch.group] = (counts[ch.group] || 0) + 1;
+        if (!groups.includes(ch.group)) groups.push(ch.group);
+    }
+    state.categoryCounts = counts;
+    state.categories = ['Toutes', '⭐ Favoris', ...groups];
+    state.countries = ['TOUS', ...Array.from(new Set(state.channels.map(c => c.country)))];
+
+    updateTopStats();
+    renderBouquetTabs();
+    renderCountryTabs();
+    renderChannelCollection();
+    renderHomeDashboard();
+    renderVodCatalog();
+    renderSportsCatalog();
+    renderSourcesList();
+
+    if (playFirst && state.channels.length > 0) {
+        selectChannel(state.channels[0]);
+    }
+}
+
+function toggleAdultMode() {
+    state.isAdultMode = !state.isAdultMode;
+    document.body.classList.toggle('adult-mode', state.isAdultMode);
+
+    const btn = document.getElementById('adultModeBtn');
+    if (btn) btn.textContent = state.isAdultMode ? '🔞 Quitter Mode 18+' : '🔞 Mode Olé Olé (18+)';
+
+    document.getElementById('normalQuickBouquets').style.display = state.isAdultMode ? 'none' : 'flex';
+    document.getElementById('adultQuickBouquets').style.display = state.isAdultMode ? 'flex' : 'none';
+
+    const sportsTab = document.querySelector('.nav-item[data-tab="sports"]');
+    if (sportsTab) sportsTab.style.display = state.isAdultMode ? 'none' : 'flex';
+
+    state.selectedCategory = 'Toutes';
+    state.selectedCountry = 'TOUS';
+    state.searchQuery = '';
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) searchInput.value = '';
+
+    recomputeModeData(true);
 }
 
 function updateTopStats() {
@@ -601,13 +642,13 @@ function renderSourcesList() {
 }
 
 // Playlist Import Actions
-async function quickLoadBouquet(name, url) {
+async function quickLoadBouquet(name, url, forceAdult = false) {
     setSyncBanner(`⏳ Téléchargement et classement de "${name}" en cours...`);
     try {
         const res = await fetch('/api/playlist/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, type: 'M3U_URL', serverUrl: url })
+            body: JSON.stringify({ name, type: 'M3U_URL', serverUrl: url, forceAdult: forceAdult || state.isAdultMode })
         });
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || 'Erreur chargement');

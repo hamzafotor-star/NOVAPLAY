@@ -25,9 +25,9 @@ import tv.novaplay.iptv.ui.screens.MainScreen
 import tv.novaplay.iptv.ui.theme.NovaPlayTheme
 
 /**
- * Main Activity supporting Mobile (Portrait & Landscape), Tablet, Android TV Leanback
- * (D-Pad remote control zapping), True Immersive Fullscreen, Picture-in-Picture (PiP),
- * and external M3U playlist deep-links.
+ * Main Activity supporting Mobile (Portrait & Landscape), Tablet, Android TV Leanback,
+ * True Immersive Fullscreen, Adult "Olé Olé" Black & Rose theme switching,
+ * and automatic playback stop when leaving the application.
  */
 class MainActivity : ComponentActivity() {
 
@@ -75,7 +75,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            NovaPlayTheme {
+            NovaPlayTheme(adultMode = uiState.isAdultMode) {
                 MainScreen(
                     viewModel = viewModel,
                     isInPipMode = isInPipMode,
@@ -128,6 +128,8 @@ class MainActivity : ComponentActivity() {
                     viewModel.openVodDetail(null)
                     return true
                 }
+                // When pressing Back to exit the app, immediately stop playback
+                viewModel.playerController.stopPlayback()
             }
         }
         return super.onKeyDown(keyCode, event)
@@ -142,23 +144,38 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        if (viewModel.playerController.uiState.value.isPlaying) {
-            enterPipIfSupported()
-        }
-    }
-
     override fun onPictureInPictureModeChanged(
         isInPictureInPictureMode: Boolean,
         newConfig: Configuration
     ) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         isInPipMode = isInPictureInPictureMode
+        if (!isInPictureInPictureMode && !lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+            viewModel.playerController.stopPlayback()
+        }
     }
 
+    /**
+     * When the user leaves the app (Home button, switching apps, turning off screen),
+     * immediately stop playback so audio/video never continues playing in the background!
+     */
     override fun onPause() {
         viewModel.saveActiveVodProgressIfNeeded()
+        if (!isInPictureInPictureMode) {
+            viewModel.playerController.stopPlayback()
+        }
         super.onPause()
+    }
+
+    override fun onStop() {
+        if (!isInPictureInPictureMode) {
+            viewModel.playerController.stopPlayback()
+        }
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        viewModel.playerController.stopPlayback()
+        super.onDestroy()
     }
 }
